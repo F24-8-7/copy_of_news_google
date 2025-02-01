@@ -1,0 +1,304 @@
+import 'package:copy_of_news_google/core/imports/imports.dart';
+
+class NewsScreen extends StatefulWidget {
+  const NewsScreen({super.key});
+
+  @override
+  State<NewsScreen> createState() => _NewsScreenState();
+}
+class _NewsScreenState extends State<NewsScreen> with TickerProviderStateMixin {
+  late TabController _tabController;
+  int _selectedNavIndex = 0;
+  int _currentTabIndex = 0;
+  bool _isInternetConnected = true;
+  late final InternetConnectionCheckerPlus _connectionChecker;
+  late Stream<InternetConnectionStatus> _statusStream;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _connectionChecker = InternetConnectionCheckerPlus();
+    _statusStream = _connectionChecker.onStatusChange;
+    _listenToConnectionStatus();
+
+    // Initialize with a placeholder value (will be updated in didChangeDependencies)
+    _tabController = TabController(length: 1, vsync: this);
+    _tabController.addListener(_handleTabSelection);
+
+    context.read<NewsBloc>().add(const FetchNewsEvent(category: null));
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    // Dispose of the old TabController before creating a new one
+    _tabController.removeListener(_handleTabSelection);
+    _tabController.dispose();
+
+    // Safely create a new TabController based on the updated context
+    final categoriesLength = Categories.all(context).length;
+    _tabController = TabController(length: categoriesLength + 1, vsync: this);
+    _tabController.addListener(_handleTabSelection);
+  }
+
+  @override
+  void dispose() {
+    // Dispose of the TabController when the widget is removed from the widget tree
+    _tabController.removeListener(_handleTabSelection);
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _listenToConnectionStatus() {
+    _statusStream.listen((status) {
+      setState(() {
+        _isInternetConnected = (status == InternetConnectionStatus.connected);
+      });
+
+      if (_isInternetConnected) {
+        context.read<NewsBloc>().add(const RefreshNewsEvent());
+      }
+    });
+  }
+
+  void _handleTabSelection() {
+    if (_tabController.index != _currentTabIndex) {
+      setState(() {
+        _currentTabIndex = _tabController.index;
+      });
+
+      String? category;
+      if (_tabController.index == 0) {
+        category = null;
+      } else {
+        category = Categories.all(context)[_tabController.index - 1].apiName;
+      }
+
+      if (_isInternetConnected) {
+        context.read<NewsBloc>().add(FetchNewsEvent(category: category));
+      }
+    }
+  }
+
+  void _showSearch() {
+    showSearch(
+      context: context,
+      delegate: NewsSearchDelegate(
+        context: context,
+        onSearch: (query) {
+          if (query.isEmpty) {
+            _handleTabSelection();
+          } else {
+            context.read<NewsBloc>().add(SearchNewsEvent(query));
+          }
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(l10n.news),
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.language),
+          onPressed: () {
+            final currentLocale = context.read<LocaleBloc>().state.locale;
+            final newLocale = currentLocale.languageCode == 'en'
+                ? const Locale('ar')
+                : const Locale('en');
+            context.read<LocaleBloc>().add(ChangeLocale(newLocale));
+          },
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: _showSearch,
+          ),
+        ],
+        bottom: _selectedNavIndex == 0
+            ? PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: TabBar(
+            controller: _tabController,
+            isScrollable: true,
+            tabs: [
+              Tab(text: l10n.all),
+              ...Categories.all(context)
+                  .map((category) => Tab(text: category.name)),
+            ],
+          ),
+        )
+            : null,
+      ),
+      body: IndexedStack(
+        index: _selectedNavIndex,
+        children: [
+          TabBarView(
+            controller: _tabController,
+            children: [
+              _buildNewsScreen(category: null),
+              ...Categories.all(context).map(
+                    (category) => _buildNewsScreen(category: category.apiName),
+              ),
+            ],
+          ),
+          const BookmarksScreen(),
+        ],
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedNavIndex,
+        onDestinationSelected: (index) {
+          setState(() {
+            _selectedNavIndex = index;
+          });
+        },
+        destinations: [
+          NavigationDestination(
+            icon: const Icon(Icons.home_outlined),
+            selectedIcon: const Icon(Icons.home),
+            label: l10n.home,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.bookmark_border),
+            selectedIcon: const Icon(Icons.bookmark),
+            label: l10n.bookmarks,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNewsScreen({String? category}) {
+    return BlocBuilder<NewsBloc, NewsState>(
+      builder: (context, state) {
+        if (!_isInternetConnected &&
+            (state is! NewsLoaded || state.articles.isEmpty)) {
+          return _buildNoInternetState();
+        }
+
+        if (state is NewsLoading && _isInternetConnected) {
+          return ListView.builder(
+            itemCount: 5,
+            padding: const EdgeInsets.all(16),
+            itemBuilder: (context, index) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Shimmer.fromColors(
+                  baseColor:
+                  Theme.of(context).colorScheme.secondary.withOpacity(0.3),
+                  highlightColor:
+                  Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                  child: Card(
+                    elevation: 3,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const SizedBox(height: 100, width: double.infinity),
+                  ),
+                ),
+              );
+            },
+          );
+        }
+
+        if (state is NewsLoaded && state.articles.isNotEmpty) {
+          return ListView.builder(
+            itemCount: state.articles.length,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            itemBuilder: (context, index) {
+              return ArticleCard(article: state.articles[index]);
+            },
+          );
+        }
+
+        if (state is NewsLoaded && state.articles.isEmpty) {
+          return _buildEmptyState();
+        }
+
+        if (state is NewsError) {
+          return _buildErrorState(state.message);
+        }
+
+        return const SizedBox();
+      },
+    );
+  }
+
+  Widget _buildNoInternetState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.wifi_off, size: 80, color: Colors.redAccent),
+          const SizedBox(height: 20),
+          Text(
+            AppLocalizations.of(context)!.no_internet,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.article_outlined, size: 60, color: Colors.grey[500]),
+          const SizedBox(height: 12),
+          Text(
+            AppLocalizations.of(context)!.no_articles_found,
+            style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey[600]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState(String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 60, color: Colors.redAccent),
+            const SizedBox(height: 12),
+            Text(
+              '${AppLocalizations.of(context)!.error}: $message',
+              style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.redAccent),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () {
+                context.read<NewsBloc>().add(const RefreshNewsEvent());
+              },
+              icon: const Icon(Icons.refresh),
+              label: Text(AppLocalizations.of(context)!.retry),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

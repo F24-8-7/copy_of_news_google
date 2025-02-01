@@ -1,0 +1,22 @@
+{
+    "news": "News",
+    "home": "Home",
+    "bookmarks": "Bookmarks",
+    "no_internet": "No Internet Connection",
+    "no_articles_found": "No articles found",
+    "error": "Error",
+    "retry": "Try Again",
+    "search": "Search",
+    "language_switch": "Switch Language",
+    "article_not_found": "No articles found",
+    "all": "All",
+    "no_bookmarks_yet": "No bookmarks yet",
+    "bookmarks_explanation": "Articles you bookmark will appear here",
+    "general": "General",
+    "business": "Business",
+    "technology": "Technology",
+    "sports": "Sports",
+    "entertainment": "Entertainment",
+    "health": "Health",
+    "science": "Science"
+}

@@ -1,0 +1,22 @@
+{
+    "news": "أخبار",
+    "home": "الرئيسية",
+    "bookmarks": "المفضلة",
+    "no_internet": "لا يوجد اتصال بالإنترنت",
+    "no_articles_found": "لم يتم العثور على مقالات",
+    "error": "خطأ",
+    "retry": "إعادة المحاولة",
+    "search": "بحث",
+    "language_switch": "تبديل اللغة",
+    "article_not_found": "لم يتم العثور على مقالات",
+    "all": "الكل",
+    "no_bookmarks_yet": "لا توجد مفضلات بعد",
+    "bookmarks_explanation": "المقالات التي تضيفها للمفضلة ستظهر هنا",
+    "general": "عام",
+    "business": "أعمال",
+    "technology": "تكنولوجيا",
+    "sports": "رياضة",
+    "entertainment": "ترفيه",
+    "health": "صحة",
+    "science": "علوم"
+}

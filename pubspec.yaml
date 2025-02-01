@@ -1,0 +1,46 @@
+name: copy_of_news_google
+description: "A new Flutter project."
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+version: 1.0.0+1
+environment:
+  sdk: ^3.5.3
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  provider:
+  webview_flutter:
+  dio: 
+  flutter_bloc: 
+  bloc: 
+  shared_preferences:
+  conditional_builder_null_safety: 
+  hexcolor:
+  equatable:
+  shimmer:
+  http: 
+  intl: 
+  cached_network_image: 
+  url_launcher: 
+  share_plus:
+  internet_connection_checker_plus: ^1.0.0
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^4.0.0
+
+
+
+# The following section is specific to Flutter packages.
+flutter:
+
+  uses-material-design: true
+  generate: true
+
+  assets:
+    - assets/images/

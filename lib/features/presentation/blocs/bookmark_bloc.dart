@@ -1,0 +1,76 @@
+import 'dart:convert';
+import 'package:copy_of_news_google/features/data/models/article.dart';
+import 'package:equatable/equatable.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+part 'bookmark_event.dart';
+part 'bookmark_state.dart';
+
+class BookmarkBloc extends Bloc<BookmarkEvent, BookmarkState> {
+  List<Article> _bookmarkedArticles = [];
+
+  BookmarkBloc() : super(BookmarkInitial()) {
+    on<AddBookmarkEvent>(_onAddBookmark);
+    on<RemoveBookmarkEvent>(_onRemoveBookmark);
+    on<LoadBookmarksEvent>(_onLoadBookmarks);
+
+    add(LoadBookmarksEvent());
+  }
+
+  void _onAddBookmark(AddBookmarkEvent event, Emitter<BookmarkState> emit) async {
+    try {
+      if (!_bookmarkedArticles.any((article) => article.url == event.article.url)) {
+        _bookmarkedArticles.add(event.article);
+        await _saveBookmarks();
+        emit(BookmarkLoaded(List.from(_bookmarkedArticles)));
+      }
+    } catch (e) {
+      emit(BookmarkError(e.toString()));
+    }
+  }
+
+  void _onRemoveBookmark(RemoveBookmarkEvent event, Emitter<BookmarkState> emit) async {
+    try {
+      _bookmarkedArticles.removeWhere((article) => article.url == event.article.url);
+      await _saveBookmarks();
+      emit(BookmarkLoaded(List.from(_bookmarkedArticles)));
+    } catch (e) {
+      emit(BookmarkError(e.toString()));
+    }
+  }
+
+  void _onLoadBookmarks(LoadBookmarksEvent event, Emitter<BookmarkState> emit) async {
+    try {
+      emit(BookmarkLoading());
+      _bookmarkedArticles = await _loadBookmarks();
+      emit(BookmarkLoaded(_bookmarkedArticles));
+    } catch (e) {
+      emit(BookmarkError(e.toString()));
+    }
+  }
+
+  Future<void> _saveBookmarks() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonString = jsonEncode(_bookmarkedArticles.map((e) => e.toJson()).toList());
+      await prefs.setString('bookmarks', jsonString);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<List<Article>> _loadBookmarks() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonString = prefs.getString('bookmarks');
+
+      if (jsonString != null && jsonString.isNotEmpty) {
+        final List<dynamic> jsonList = jsonDecode(jsonString);
+        return jsonList.map((e) => Article.fromJson(e)).toList();
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+}
