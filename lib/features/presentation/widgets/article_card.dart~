@@ -1,0 +1,183 @@
+
+import 'package:copy_of_news_google/core/imports/imports.dart';
+import 'package:copy_of_news_google/features/data/models/article.dart';
+import 'package:copy_of_news_google/features/presentation/blocs/bookmark_bloc.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+class ArticleCard extends StatelessWidget {
+  final Article article;
+
+  const ArticleCard({super.key, required this.article});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.all(8),
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (article.urlToImage != null)
+            ClipRRect(
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(12)),
+              child: Image.network(
+                article.urlToImage!,
+                height: 200,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    height: 200,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(color: Colors.grey[300]),
+                    child: const Icon(Icons.broken_image,
+                        size: 50, color: Colors.grey),
+                  );
+                },
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        article.title,
+                        style: Theme.of(context).textTheme.titleMedium,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.more_vert),
+                      onPressed: () => _showOptionsSheet(context, article),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (article.formattedDescription.isNotEmpty) ...[
+                  Text(
+                    article.formattedDescription,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      article.source,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: Colors.grey[600]),
+                    ),
+                    Text(
+                      article.formattedDate,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      final url = Uri.parse(article.url);
+                      if (await canLaunchUrl(url)) {
+                        await launchUrl(url,
+                            mode: LaunchMode.externalApplication);
+                      }
+                    },
+                    child: const Text('Read More'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showOptionsSheet(BuildContext context, Article article) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.share),
+                title: const Text('Share'),
+                onTap: () {
+                  Share.share('${article.title}\n${article.url}');
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.open_in_new_sharp),
+                title: const Text('Open in Browser'),
+                onTap: () async {
+                  final url = Uri.parse(article.url);
+                  if (await canLaunchUrl(url)) {
+                    await launchUrl(url, mode: LaunchMode.externalApplication);
+                  }
+                  Navigator.pop(context);
+                },
+              ),
+              BlocBuilder<BookmarkBloc, BookmarkState>(
+                builder: (context, state) {
+                  bool isBookmarked = false;
+                  if (state is BookmarkLoaded) {
+                    isBookmarked = state.bookmarks
+                        .any((bookmark) => bookmark.url == article.url);
+                  }
+                  return ListTile(
+                    leading: Icon(
+                      isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                      color: isBookmarked ? Colors.orange : Colors.black,
+                    ),
+                    title: Text(isBookmarked
+                        ? 'Remove from Bookmarks'
+                        : 'Add to Bookmarks'),
+                    onTap: () {
+                      if (isBookmarked) {
+                        context
+                            .read<BookmarkBloc>()
+                            .add(RemoveBookmarkEvent(article));
+                      } else {
+                        context
+                            .read<BookmarkBloc>()
+                            .add(AddBookmarkEvent(article));
+                      }
+                      Navigator.pop(context);
+                    },
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}

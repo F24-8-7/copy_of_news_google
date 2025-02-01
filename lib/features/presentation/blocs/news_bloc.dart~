@@ -1,0 +1,84 @@
+import 'package:equatable/equatable.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../models/article.dart';
+import '../../data/services/news_service.dart';
+
+part 'news_event.dart';
+part 'news_state.dart';
+
+class NewsBloc extends Bloc<NewsEvent, NewsState> {
+  final NewsService _newsService;
+
+  NewsBloc({NewsService? newsService}) 
+      : _newsService = newsService ?? NewsService(),
+        super(const NewsInitial()) {
+    on<FetchNewsEvent>(_onFetchNews);
+    on<SearchNewsEvent>(_onSearchNews);
+    on<RefreshNewsEvent>(_onRefreshNews);
+  }
+
+  Future<void> _onFetchNews(FetchNewsEvent event, Emitter<NewsState> emit) async {
+    try {
+      emit(const NewsLoading());
+      final articles = await _newsService.getTopHeadlines(
+        category: event.category,
+        query: event.query,
+      );
+      if (articles.isEmpty) {
+        emit(NewsEmpty(
+          category: event.category,
+          query: event.query,
+        ));
+      } else {
+        emit(NewsLoaded(
+          articles: articles,
+          category: event.category,
+          query: event.query,
+        ));
+      }
+    } catch (e) {
+      emit(NewsError(
+        message: e.toString(),
+        category: event.category,
+        query: event.query,
+      ));
+    }
+  }
+
+  Future<void> _onSearchNews(SearchNewsEvent event, Emitter<NewsState> emit) async {
+    if (event.query.trim().isEmpty) {
+      add(const FetchNewsEvent());
+      return;
+    }
+
+    try {
+      emit(const NewsLoading());
+      final articles = await _newsService.searchNews(event.query);
+      if (articles.isEmpty) {
+        emit(NewsEmpty(query: event.query));
+      } else {
+        emit(NewsLoaded(
+          articles: articles,
+          query: event.query,
+        ));
+      }
+    } catch (e) {
+      emit(NewsError(
+        message: e.toString(),
+        query: event.query,
+      ));
+    }
+  }
+
+  Future<void> _onRefreshNews(RefreshNewsEvent event, Emitter<NewsState> emit) async {
+    final currentState = state;
+    if (currentState is NewsLoaded) {
+      add(FetchNewsEvent(
+        category: currentState.category,
+        query: currentState.query,
+      ));
+    } else {
+      add(const FetchNewsEvent());
+    }
+  }
+}
